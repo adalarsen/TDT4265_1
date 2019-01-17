@@ -18,7 +18,7 @@ def remove_all_but_twos_and_threes(X_train, Y_train, X_test, Y_test):
         if (i == 2 or i == 3):
             count_test = count_test + 1
     X_train_2 = np.zeros([count_train, 785])
-    X_test_2 = np.zeros([count_train, 784])
+    X_test_2 = np.zeros([count_test, 784])
     Y_train_2 = np.zeros(count_train)
     Y_test_2 = np.zeros(count_test)
     count = 0
