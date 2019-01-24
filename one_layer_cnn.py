@@ -33,16 +33,19 @@ def remove_all_but_twos_and_threes(X_train, Y_train, X_test, Y_test):
             Y_test_2[count] = Y_test[i]
             X_test_2[count] = X_test[i]
             count = count + 1
+
     X_test = X_test_2
-    Y_test = Y_test_2
+    Y_test = Y_test_2-2
     X_train = X_train_2
-    Y_train = Y_train_2
+    Y_train = Y_train_2-2
     return X_train, Y_train, X_test, Y_test
 
 X_train, Y_train, X_test, Y_test = remove_all_but_twos_and_threes(X_train,Y_train, X_test, Y_test)
+print(X_train.shape)
+print(Y_train.shape)
 
-X_train = X_train[:10000]
-Y_train = Y_train[:10000]
+X_train = X_train[:1000]
+Y_train = Y_train[:1000]
 X_test = X_test[:1000]
 Y_test = Y_test[:1000]
 
@@ -81,23 +84,27 @@ def forward_pass(X, w):
 
 def gradient_descent(X, outputs, targets, weights, learning_rate):
     N = X.shape[0]
+
     targets = np.reshape(targets,outputs.shape)
     assert outputs.shape == targets.shape
+
     for i in range(weights.shape[0]):
         # Gradient for logistic regression
-        dw_i = -(targets-outputs)*X[:, i:i+1]
+        dw_i = -(targets-1/(1+np.exp(-outputs)))*X[:, i:i+1]
 
         expected_shape = (N, 1)
         assert dw_i.shape == expected_shape, \
         "dw_j shape was: {}. Expected: {}".format(dw_i.shape, expected_shape)
-        dw_i = dw_i.mean(axis=0)
-        weights[i] = weights[i] -learning_rate * dw_i
+        dw_i = dw_i.sum(axis=0)
+
+        weights[i] = weights[i] - learning_rate * dw_i
+
     return weights
 
 ## TRAINING
 
 # Hyperparameters
-epochs = 200
+epochs = 20
 batch_size = 32
 
 # Tracking variables
@@ -111,12 +118,13 @@ check_step = num_batches_per_epoch // 10
 
 
 
-w = np.zeros((num_features, 1))
+w = np.random.normal(size=(num_features, 1))
 
 def train_loop(w):
     training_it = 0
     T = 0.01
     for epoch in range(epochs):
+        print(epoch / epochs)
         # shuffle(X_train, Y_train)
         for i in range(num_batches_per_epoch):
             init_learning_rate = 0.001
@@ -129,17 +137,17 @@ def train_loop(w):
             out = forward_pass(X_batch, w)
             w = gradient_descent(X_batch, out, Y_batch, w, learning_rate)
 
-            if i % check_step == 0:
+            if True:#i % check_step == 0:
                 # Training set
                 train_out = forward_pass(X_train, w)
                 train_loss = logistic_loss(Y_train, train_out)
                 TRAIN_LOSS.append(train_loss)
                 TRAINING_STEP.append(training_it)
 
-                val_out = forward_pass(X_val, w)
+                val_out = 1/(1+np.exp(-forward_pass(X_val, w)))
                 val_loss = logistic_loss(Y_val, val_out)
                 VAL_LOSS.append(val_loss)
-    return w
 
+    return w
 
 w = train_loop(w)
