@@ -1,6 +1,7 @@
 
 import mnist
 import numpy as np
+import matplotlib.pyplot as plt
 #mnist.init()
 X_train, Y_train, X_test, Y_test = mnist.load()
 
@@ -137,7 +138,7 @@ def train_loop(w):
             out = forward_pass(X_batch, w)
             w = gradient_descent(X_batch, out, Y_batch, w, learning_rate)
 
-            if True:#i % check_step == 0:
+            if i % check_step == 0:
                 # Training set
                 train_out = forward_pass(X_train, w)
                 train_loss = logistic_loss(Y_train, train_out)
@@ -151,3 +152,11 @@ def train_loop(w):
     return w
 
 w = train_loop(w)
+print(TRAIN_LOSS)
+plt.figure(figsize=(12, 8 ))
+plt.ylim([0, 1])
+plt.xlabel("Training steps")
+plt.ylabel("MSE Loss")
+plt.plot(TRAINING_STEP, TRAIN_LOSS, label="Training loss")
+plt.plot(TRAINING_STEP, VAL_LOSS, label="Validation loss")
+plt.legend() # Shows graph labels
