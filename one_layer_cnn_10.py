@@ -1,0 +1,182 @@
+
+import mnist
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.special import expit
+#mnist.init()
+X_train, Y_train, X_test, Y_test = mnist.load()
+
+X_train = np.concatenate((X_train, np.ones((X_train.shape[0], 1))), axis=1)
+print("X shape with bias:", X_train.shape)
+
+
+def one_hot_encoding(X_train, Y_train, X_test, Y_test):
+    X_test = X_test/ 255
+    X_train = X_train/ 255
+    digits = 10
+    examples = Y_train.shape[0]
+    print(examples)
+    Y_train = Y_train.reshape(examples, 1)
+    print(Y_train.shape)
+    Y_train_2 = np.eye(digits)[Y_train.astype('int32')]
+    print(Y_train_2.shape)
+    Y_train_2 = Y_train_2.reshape(digits, Y_train)
+    print(Y_train_2.shape)
+    return 0
+one_hot_encoding(X_train,Y_train,X_test,Y_test)
+
+
+
+print(Y_train.shape)
+
+X_train = X_train[:1000]
+Y_train = Y_train[:1000]
+X_test = X_test[:1000]
+Y_test = Y_test[:1000]
+
+def train_val_split(X, Y, val_percentage):
+    """
+      Selects samples from the dataset randomly to be in the validation set. Also, shuffles the train set.
+      --
+      X: [N, num_features] numpy vector,
+      Y: [N, 1] numpy vector
+      val_percentage: amount of data to put in validation set
+    """
+    dataset_size = X.shape[0]
+    idx = np.arange(0, dataset_size)
+    np.random.shuffle(idx)
+
+    train_size = int(dataset_size * (1 - val_percentage))
+    idx_train = idx[:train_size]
+    idx_val = idx[train_size:]
+    X_train, Y_train = X[idx_train], Y[idx_train]
+    X_val, Y_val = X[idx_val], Y[idx_val]
+    return X_train, Y_train, X_val, Y_val
+
+X_train, Y_train, X_val, Y_val = train_val_split(X_train, Y_train, 0.1)
+print("Train shape: X: {}, Y: {}".format(X_train.shape, Y_train.shape))
+print("Validation shape: X: {}, Y: {}".format(X_val.shape, Y_val.shape))
+
+def logistic_loss(targets, outputs):
+    targets = np.reshape(targets,outputs.shape)
+    assert targets.shape == outputs.shape
+    log_error = targets*np.log(outputs) + (1-targets)*np.log(1-outputs)
+    mean_log_error = -log_error.mean()
+    return mean_log_error
+
+def logistic_loss_regularization(targets, outputs, weights, lamda):
+    targets = np.reshape(targets,outputs.shape)
+    assert targets.shape == outputs.shape
+    log_error = targets*np.log(outputs) + (1-targets)*np.log(1-outputs)
+    mean_log_error = -log_error.mean()
+    regularization =  np.sum(np.square(weights))*lamda
+    #print(regularization.shape)
+    #print(mean_log_error.shape)
+    logg_error = mean_log_error + regularization
+    return logg_error
+
+def forward_pass(X, w):
+    return X.dot(w)
+
+def gradient_descent(X, outputs, targets, weights, learning_rate, regularization, lamda):
+    N = X.shape[0]
+
+    targets = np.reshape(targets,outputs.shape)
+    assert outputs.shape == targets.shape
+
+    for i in range(weights.shape[0]):
+        # Gradient for logistic regression
+
+        dw_i = -(targets-1/(1+np.exp(-outputs)))*X[:, i:i+1]
+        if regularization:
+            dw_i += 2*lamda*np.sum(weights)
+        expected_shape = (N, 1)
+        assert dw_i.shape == expected_shape, \
+        "dw_j shape was: {}. Expected: {}".format(dw_i.shape, expected_shape)
+        dw_i = dw_i.sum(axis=0)
+
+        weights[i] = weights[i] - learning_rate * dw_i
+
+    return weights
+
+def prediction(X, w):
+    outs = forward_pass(X,w)
+    outputs = np.divide(1, (1+np.exp(-outs)))
+    pred = (outputs > .5)[:, 0]
+    return pred
+
+## TRAINING
+
+# Hyperparameters
+epochs = 40
+batch_size = 32
+
+# Tracking variables
+TRAIN_LOSS = []
+VAL_LOSS = []
+TRAINING_STEP = []
+TRAIN_ACC = []
+num_features = X_train.shape[1]
+
+num_batches_per_epoch = X_train.shape[0] // batch_size
+check_step = num_batches_per_epoch // 10
+
+
+
+w = np.random.normal(size=(num_features, 1))*0.01
+
+def train_loop(w):
+    regularization = 1
+    lamda = 0.1
+    training_it = 0
+    T = 0.01
+    for epoch in range(epochs):
+        print(epoch / epochs)
+        # shuffle(X_train, Y_train)
+        for i in range(num_batches_per_epoch):
+            init_learning_rate = 0.001
+            #learning_rate = init_learning_rate / (1 + training_it/T)
+            learning_rate = 0.0001
+            training_it += 1
+            X_batch = X_train[i * batch_size:(i + 1) * batch_size]
+            Y_batch = Y_train[i * batch_size:(i + 1) * batch_size]
+
+            out = forward_pass(X_batch, w)
+            w = gradient_descent(X_batch, out, Y_batch, w, learning_rate, regularization, lamda)
+
+            if i % check_step == 0:
+                # Training set
+                train_out = forward_pass(X_train, w)
+                train_out = np.divide(1,(1+np.exp(-train_out)))
+                if regularization:
+                    train_loss = logistic_loss_regularization(Y_train, train_out, w, lamda)
+                else:
+                    train_loss = logistic_loss(Y_train, train_out)
+                TRAIN_LOSS.append(train_loss)
+                TRAINING_STEP.append(training_it)
+
+                val_out = 1/(1+np.exp(-forward_pass(X_val, w)))
+                if regularization:
+                    val_loss = logistic_loss_regularization(Y_val, val_out, w, lamda)
+                else:
+                    val_loss = logistic_loss(Y_val, val_out)
+                VAL_LOSS.append(val_loss)
+
+        TRAIN_ACC.append(100*np.sum(prediction(X_train, w)==Y_train)/len(Y_train))
+        print(TRAIN_ACC[-1])
+
+        if (epoch % 1 == 0):
+            print("Epoch: %d, Loss: %.8f, Error: %.8f"
+            % (epoch, train_loss, np.mean(TRAIN_LOSS)))
+
+    return w
+
+w = train_loop(w)
+plt.figure(figsize=(12, 8 ))
+#plt.ylim([0, 1])
+plt.xlabel("Training steps")
+plt.ylabel("MSE Loss")
+plt.plot(TRAINING_STEP, TRAIN_LOSS, label="Training loss")
+plt.plot(TRAINING_STEP, VAL_LOSS, label="Validation loss")
+plt.legend() # Shows graph labels
+plt.show()
