@@ -2,6 +2,7 @@
 import mnist
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.special import expit
 #mnist.init()
 X_train, Y_train, X_test, Y_test = mnist.load()
 
@@ -35,9 +36,11 @@ def remove_all_but_twos_and_threes(X_train, Y_train, X_test, Y_test):
             X_test_2[count] = X_test[i]
             count = count + 1
 
-    X_test = X_test_2
+    X_test = (X_test_2)
+    X_test /= 255
     Y_test = Y_test_2-2
     X_train = X_train_2
+    X_train /= 255
     Y_train = Y_train_2-2
     return X_train, Y_train, X_test, Y_test
 
@@ -77,7 +80,7 @@ def logistic_loss(targets, outputs):
     targets = np.reshape(targets,outputs.shape)
     assert targets.shape == outputs.shape
     log_error = targets*np.log(outputs) + (1-targets)*np.log(1-outputs)
-    mean_log_error = log_error.mean()
+    mean_log_error = -log_error.mean()
     return mean_log_error
 
 def forward_pass(X, w):
@@ -91,8 +94,8 @@ def gradient_descent(X, outputs, targets, weights, learning_rate):
 
     for i in range(weights.shape[0]):
         # Gradient for logistic regression
-        dw_i = -(targets-1/(1+np.exp(-outputs)))*X[:, i:i+1]
 
+        dw_i = -(targets-1/(1+np.exp(-outputs)))*X[:, i:i+1]
         expected_shape = (N, 1)
         assert dw_i.shape == expected_shape, \
         "dw_j shape was: {}. Expected: {}".format(dw_i.shape, expected_shape)
@@ -102,16 +105,24 @@ def gradient_descent(X, outputs, targets, weights, learning_rate):
 
     return weights
 
+def prediction(X, w):
+    outs = forward_pass(X,w)
+    outputs = np.divide(1, (1+np.exp(-outs)))
+    pred = (outputs > .5)[:, 0]
+    print(pred.shape)
+    return pred
+
 ## TRAINING
 
 # Hyperparameters
-epochs = 20
+epochs = 40
 batch_size = 32
 
 # Tracking variables
 TRAIN_LOSS = []
 VAL_LOSS = []
 TRAINING_STEP = []
+TRAIN_ACC = []
 num_features = X_train.shape[1]
 
 num_batches_per_epoch = X_train.shape[0] // batch_size
@@ -119,7 +130,7 @@ check_step = num_batches_per_epoch // 10
 
 
 
-w = np.random.normal(size=(num_features, 1))
+w = np.random.normal(size=(num_features, 1))*0.01
 
 def train_loop(w):
     training_it = 0
@@ -141,6 +152,7 @@ def train_loop(w):
             if i % check_step == 0:
                 # Training set
                 train_out = forward_pass(X_train, w)
+                train_out = np.divide(1,(1+np.exp(-train_out)))
                 train_loss = logistic_loss(Y_train, train_out)
                 TRAIN_LOSS.append(train_loss)
                 TRAINING_STEP.append(training_it)
@@ -149,14 +161,21 @@ def train_loop(w):
                 val_loss = logistic_loss(Y_val, val_out)
                 VAL_LOSS.append(val_loss)
 
+                TRAIN_ACC.append(100*np.sum(prediction(X_train, w)==Y_train)/len(Y_train))
+                print(TRAIN_ACC[-1])
+
+                if (epoch % 1 == 0):
+                    print("Epoch: %d, Loss: %.8f, Error: %.8f"
+                    % (epoch, train_loss, np.mean(TRAIN_LOSS)))
+
     return w
 
 w = train_loop(w)
-print(TRAIN_LOSS)
 plt.figure(figsize=(12, 8 ))
-plt.ylim([0, 1])
+#plt.ylim([0, 1])
 plt.xlabel("Training steps")
 plt.ylabel("MSE Loss")
 plt.plot(TRAINING_STEP, TRAIN_LOSS, label="Training loss")
 plt.plot(TRAINING_STEP, VAL_LOSS, label="Validation loss")
 plt.legend() # Shows graph labels
+plt.show()
