@@ -83,10 +83,21 @@ def logistic_loss(targets, outputs):
     mean_log_error = -log_error.mean()
     return mean_log_error
 
+def logistic_loss_regularization(targets, outputs, weights, lamda):
+    targets = np.reshape(targets,outputs.shape)
+    assert targets.shape == outputs.shape
+    log_error = targets*np.log(outputs) + (1-targets)*np.log(1-outputs)
+    mean_log_error = -log_error.mean()
+    regularization =  np.sum(np.square(weights))*lamda
+    #print(regularization.shape)
+    #print(mean_log_error.shape)
+    logg_error = mean_log_error + regularization
+    return logg_error
+
 def forward_pass(X, w):
     return X.dot(w)
 
-def gradient_descent(X, outputs, targets, weights, learning_rate):
+def gradient_descent(X, outputs, targets, weights, learning_rate, regularization, lamda):
     N = X.shape[0]
 
     targets = np.reshape(targets,outputs.shape)
@@ -96,6 +107,8 @@ def gradient_descent(X, outputs, targets, weights, learning_rate):
         # Gradient for logistic regression
 
         dw_i = -(targets-1/(1+np.exp(-outputs)))*X[:, i:i+1]
+        if regularization:
+            dw_i += 2*lamda*np.sum(weights)
         expected_shape = (N, 1)
         assert dw_i.shape == expected_shape, \
         "dw_j shape was: {}. Expected: {}".format(dw_i.shape, expected_shape)
@@ -109,7 +122,6 @@ def prediction(X, w):
     outs = forward_pass(X,w)
     outputs = np.divide(1, (1+np.exp(-outs)))
     pred = (outputs > .5)[:, 0]
-    print(pred.shape)
     return pred
 
 ## TRAINING
@@ -133,6 +145,8 @@ check_step = num_batches_per_epoch // 10
 w = np.random.normal(size=(num_features, 1))*0.01
 
 def train_loop(w):
+    regularization = 1
+    lamda = 0.1
     training_it = 0
     T = 0.01
     for epoch in range(epochs):
@@ -147,26 +161,32 @@ def train_loop(w):
             Y_batch = Y_train[i * batch_size:(i + 1) * batch_size]
 
             out = forward_pass(X_batch, w)
-            w = gradient_descent(X_batch, out, Y_batch, w, learning_rate)
+            w = gradient_descent(X_batch, out, Y_batch, w, learning_rate, regularization, lamda)
 
             if i % check_step == 0:
                 # Training set
                 train_out = forward_pass(X_train, w)
                 train_out = np.divide(1,(1+np.exp(-train_out)))
-                train_loss = logistic_loss(Y_train, train_out)
+                if regularization:
+                    train_loss = logistic_loss_regularization(Y_train, train_out, w, lamda)
+                else:
+                    train_loss = logistic_loss(Y_train, train_out)
                 TRAIN_LOSS.append(train_loss)
                 TRAINING_STEP.append(training_it)
 
                 val_out = 1/(1+np.exp(-forward_pass(X_val, w)))
-                val_loss = logistic_loss(Y_val, val_out)
+                if regularization:
+                    val_loss = logistic_loss_regularization(Y_val, val_out, w, lamda)
+                else:
+                    val_loss = logistic_loss(Y_val, val_out)
                 VAL_LOSS.append(val_loss)
 
-                TRAIN_ACC.append(100*np.sum(prediction(X_train, w)==Y_train)/len(Y_train))
-                print(TRAIN_ACC[-1])
+        TRAIN_ACC.append(100*np.sum(prediction(X_train, w)==Y_train)/len(Y_train))
+        print(TRAIN_ACC[-1])
 
-                if (epoch % 1 == 0):
-                    print("Epoch: %d, Loss: %.8f, Error: %.8f"
-                    % (epoch, train_loss, np.mean(TRAIN_LOSS)))
+        if (epoch % 1 == 0):
+            print("Epoch: %d, Loss: %.8f, Error: %.8f"
+            % (epoch, train_loss, np.mean(TRAIN_LOSS)))
 
     return w
 
