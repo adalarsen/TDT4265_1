@@ -2,11 +2,13 @@
 import mnist
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 from scipy.special import expit
 #mnist.init()
 X_train, Y_train, X_test, Y_test = mnist.load()
 
 X_train = np.concatenate((X_train, np.ones((X_train.shape[0], 1))), axis=1)
+X_test = np.concatenate((X_test, np.ones((X_test.shape[0], 1))), axis=1)
 print("X shape with bias:", X_train.shape)
 
 
@@ -20,7 +22,7 @@ def remove_all_but_twos_and_threes(X_train, Y_train, X_test, Y_test):
         if (i == 2 or i == 3):
             count_test = count_test + 1
     X_train_2 = np.zeros([count_train, 785])
-    X_test_2 = np.zeros([count_test, 784])
+    X_test_2 = np.zeros([count_test, 785])
     Y_train_2 = np.zeros(count_train)
     Y_test_2 = np.zeros(count_test)
     count = 0
@@ -50,8 +52,8 @@ print(Y_train.shape)
 
 X_train = X_train[:1000]
 Y_train = Y_train[:1000]
-X_test = X_test[:1000]
-Y_test = Y_test[:1000]
+X_test = X_test[-1000:]
+Y_test = Y_test[-1000:]
 
 def train_val_split(X, Y, val_percentage):
     """
@@ -109,9 +111,6 @@ def gradient_descent(X, outputs, targets, weights, learning_rate, regularization
         dw_i = -(targets-1/(1+np.exp(-outputs)))*X[:, i:i+1]
         if regularization:
             dw_i += 2*lamda*np.sum(weights)
-        expected_shape = (N, 1)
-        assert dw_i.shape == expected_shape, \
-        "dw_j shape was: {}. Expected: {}".format(dw_i.shape, expected_shape)
         dw_i = dw_i.sum(axis=0)
 
         weights[i] = weights[i] - learning_rate * dw_i
@@ -124,6 +123,7 @@ def prediction(X, w):
     pred = (outputs > .5)[:, 0]
     return pred
 
+
 ## TRAINING
 
 # Hyperparameters
@@ -134,34 +134,43 @@ batch_size = 32
 TRAIN_LOSS = []
 VAL_LOSS = []
 TRAINING_STEP = []
+TEST_LOSS = []
 TRAIN_ACC = []
+VAL_ACC = []
+TEST_ACC = []
 num_features = X_train.shape[1]
 
 num_batches_per_epoch = X_train.shape[0] // batch_size
 check_step = num_batches_per_epoch // 10
 
-
+def early_stopping(index):
+    if VAL_LOSS[index] > (VAL_LOSS[index-num_batches_per_epoch-1] and VAL_LOSS[index-2-num_batches_per_epoch] and VAL_LOSS[index-3-num_batches_per_epoch]):
+        print("Yep")
+        return 1
+    else:
+        return 0
 
 w = np.random.normal(size=(num_features, 1))*0.01
 
 def train_loop(w):
     regularization = 1
-    lamda = 0.1
+    lamda = 0.001
     training_it = 0
-    T = 0.01
+    T = 1000
     for epoch in range(epochs):
         print(epoch / epochs)
         # shuffle(X_train, Y_train)
         for i in range(num_batches_per_epoch):
-            init_learning_rate = 0.001
-            #learning_rate = init_learning_rate / (1 + training_it/T)
-            learning_rate = 0.0001
-            training_it += 1
+            init_learning_rate = 0.0001
+            learning_rate = init_learning_rate / (1 + training_it/T)
+            #print(learning_rate)
+            #learning_rate = 0.0001
             X_batch = X_train[i * batch_size:(i + 1) * batch_size]
             Y_batch = Y_train[i * batch_size:(i + 1) * batch_size]
 
             out = forward_pass(X_batch, w)
             w = gradient_descent(X_batch, out, Y_batch, w, learning_rate, regularization, lamda)
+            training_it += 1
 
             if i % check_step == 0:
                 # Training set
@@ -181,12 +190,25 @@ def train_loop(w):
                     val_loss = logistic_loss(Y_val, val_out)
                 VAL_LOSS.append(val_loss)
 
-        TRAIN_ACC.append(100*np.sum(prediction(X_train, w)==Y_train)/len(Y_train))
-        print(TRAIN_ACC[-1])
+                test_out = 1 / (1 + np.exp(-forward_pass(X_test, w)))
+                if regularization:
+                    test_loss = logistic_loss_regularization(Y_test, test_out, w, lamda)
+                else:
+                    test_loss = logistic_loss(Y_test, test_out)
+                TEST_LOSS.append(test_loss)
+
+                TRAIN_ACC.append(100 * np.sum(prediction(X_train, w) == Y_train) / len(Y_train))
+                VAL_ACC.append(100 * np.sum(prediction(X_val, w) == Y_val) / len(Y_val))
+                TEST_ACC.append(100 * np.sum(prediction(X_test, w) == Y_test) / len(Y_test))
+
+        if epoch > 4:
+            if early_stopping(len(VAL_LOSS)-1):
+               break
+
 
         if (epoch % 1 == 0):
-            print("Epoch: %d, Loss: %.8f, Error: %.8f"
-            % (epoch, train_loss, np.mean(TRAIN_LOSS)))
+            print("Epoch: %d, Loss: %.8f, Error: %.8f, Val_Loss: %.8f, Val_Error: %.8f "
+            % (epoch, train_loss, np.mean(TRAIN_LOSS), val_loss, np.mean(VAL_LOSS)))
 
     return w
 
@@ -197,5 +219,22 @@ plt.xlabel("Training steps")
 plt.ylabel("MSE Loss")
 plt.plot(TRAINING_STEP, TRAIN_LOSS, label="Training loss")
 plt.plot(TRAINING_STEP, VAL_LOSS, label="Validation loss")
+plt.plot(TRAINING_STEP, TEST_LOSS, label="Test loss")
 plt.legend() # Shows graph labels
+plt.show()
+
+plt.figure(figsize=(12, 8 ))
+#plt.ylim([0, 1])
+plt.xlabel("Training steps")
+plt.ylabel("Classified Correctly")
+plt.plot(TRAINING_STEP, TRAIN_ACC, label="Training accuracy")
+plt.plot(TRAINING_STEP, VAL_ACC, label="Validation accuracy")
+plt.plot(TRAINING_STEP, TEST_ACC, label="Test accuracy")
+plt.legend() # Shows graph labels
+plt.show()
+
+print("Weights shape: ", str(w.shape))
+plt.figure(figsize=(12, 8 ))
+plt.imshow(w[:-1,9].reshape(28,28), cmap=cm.binary)
+plt.axis("off")
 plt.show()

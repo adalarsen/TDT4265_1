@@ -3,36 +3,29 @@ import mnist
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.special import expit
-#mnist.init()
-X_train, Y_train, X_test, Y_test = mnist.load()
-
-X_train = np.concatenate((X_train, np.ones((X_train.shape[0], 1))), axis=1)
-print("X shape with bias:", X_train.shape)
-
 
 def one_hot_encoding(X_train, Y_train, X_test, Y_test):
     X_test = X_test/ 255
     X_train = X_train/ 255
     digits = 10
-    examples = Y_train.shape[0]
-    print(examples)
-    Y_train = Y_train.reshape(examples, 1)
-    print(Y_train.shape)
-    Y_train_2 = np.eye(digits)[Y_train.astype('int32')]
-    print(Y_train_2.shape)
-    Y_train_2 = Y_train_2.reshape(digits, Y_train)
-    print(Y_train_2.shape)
-    return 0
-one_hot_encoding(X_train,Y_train,X_test,Y_test)
+
+    length = Y_train.shape[0]
+    Z_train = np.zeros((length, digits))
+    Z_train[np.arange(length), Y_train] = 1
+    Y_train = Z_train
+
+    length = Y_test.shape[0]
+    Z_test = np.zeros((length, digits))
+    Z_test[np.arange(length), Y_test] = 1
+    Y_test = Z_test
+
+    return X_train, Y_train, X_test, Y_test
 
 
-
-print(Y_train.shape)
-
-X_train = X_train[:1000]
-Y_train = Y_train[:1000]
-X_test = X_test[:1000]
-Y_test = Y_test[:1000]
+def shuffle(X_train, Y_train):
+    index = np.random.permutation(Y_train.shape[0])
+    X_train, Y_train = X_train[index, :], Y_train[index,:]
+    return X_train, Y_train
 
 def train_val_split(X, Y, val_percentage):
     """
@@ -53,46 +46,36 @@ def train_val_split(X, Y, val_percentage):
     X_val, Y_val = X[idx_val], Y[idx_val]
     return X_train, Y_train, X_val, Y_val
 
-X_train, Y_train, X_val, Y_val = train_val_split(X_train, Y_train, 0.1)
-print("Train shape: X: {}, Y: {}".format(X_train.shape, Y_train.shape))
-print("Validation shape: X: {}, Y: {}".format(X_val.shape, Y_val.shape))
 
-def logistic_loss(targets, outputs):
+def softmax_loss(targets, outputs, weights, lamda):
     targets = np.reshape(targets,outputs.shape)
     assert targets.shape == outputs.shape
-    log_error = targets*np.log(outputs) + (1-targets)*np.log(1-outputs)
-    mean_log_error = -log_error.mean()
-    return mean_log_error
-
-def logistic_loss_regularization(targets, outputs, weights, lamda):
-    targets = np.reshape(targets,outputs.shape)
-    assert targets.shape == outputs.shape
-    log_error = targets*np.log(outputs) + (1-targets)*np.log(1-outputs)
-    mean_log_error = -log_error.mean()
+    softmax_error = np.multiply(targets, np.log(outputs))
+    mean_softmax = np.mean(softmax_error)
     regularization =  np.sum(np.square(weights))*lamda
-    #print(regularization.shape)
-    #print(mean_log_error.shape)
-    logg_error = mean_log_error + regularization
-    return logg_error
+
+    softmaxx_error = mean_softmax + regularization
+    return softmaxx_error
 
 def forward_pass(X, w):
     return X.dot(w)
 
+
+
+def softmax(z):
+    s = np.divide(np.exp(z), np.sum(np.exp(z), axis=0))
+    return s
+
 def gradient_descent(X, outputs, targets, weights, learning_rate, regularization, lamda):
     N = X.shape[0]
-
     targets = np.reshape(targets,outputs.shape)
     assert outputs.shape == targets.shape
 
     for i in range(weights.shape[0]):
         # Gradient for logistic regression
 
-        dw_i = -(targets-1/(1+np.exp(-outputs)))*X[:, i:i+1]
-        if regularization:
-            dw_i += 2*lamda*np.sum(weights)
-        expected_shape = (N, 1)
-        assert dw_i.shape == expected_shape, \
-        "dw_j shape was: {}. Expected: {}".format(dw_i.shape, expected_shape)
+        dw_i = -(targets-softmax(outputs))*X[:, i:i+1]
+        dw_i += 2*lamda*np.sum(weights)
         dw_i = dw_i.sum(axis=0)
 
         weights[i] = weights[i] - learning_rate * dw_i
@@ -101,11 +84,9 @@ def gradient_descent(X, outputs, targets, weights, learning_rate, regularization
 
 def prediction(X, w):
     outs = forward_pass(X,w)
-    outputs = np.divide(1, (1+np.exp(-outs)))
-    pred = (outputs > .5)[:, 0]
+    outputs = softmax(outs)
+    pred = np.argmax(outputs, axis=0) #(outputs > .5)[:, 0]
     return pred
-
-## TRAINING
 
 # Hyperparameters
 epochs = 40
@@ -116,16 +97,15 @@ TRAIN_LOSS = []
 VAL_LOSS = []
 TRAINING_STEP = []
 TRAIN_ACC = []
-num_features = X_train.shape[1]
 
-num_batches_per_epoch = X_train.shape[0] // batch_size
-check_step = num_batches_per_epoch // 10
+def train_loop(X_train, Y_train, X_val, Y_val):
 
+    num_features = X_train.shape[1]
+    num_batches_per_epoch = X_train.shape[0] // batch_size
+    check_step = num_batches_per_epoch // 10
 
+    w = np.random.normal(size=(num_features, 10)) * 0.01
 
-w = np.random.normal(size=(num_features, 1))*0.01
-
-def train_loop(w):
     regularization = 1
     lamda = 0.1
     training_it = 0
@@ -147,19 +127,16 @@ def train_loop(w):
             if i % check_step == 0:
                 # Training set
                 train_out = forward_pass(X_train, w)
-                train_out = np.divide(1,(1+np.exp(-train_out)))
-                if regularization:
-                    train_loss = logistic_loss_regularization(Y_train, train_out, w, lamda)
-                else:
-                    train_loss = logistic_loss(Y_train, train_out)
+                train_out = softmax(train_out)
+                train_loss = softmax_loss(Y_train, train_out, w, lamda)
                 TRAIN_LOSS.append(train_loss)
                 TRAINING_STEP.append(training_it)
 
                 val_out = 1/(1+np.exp(-forward_pass(X_val, w)))
                 if regularization:
-                    val_loss = logistic_loss_regularization(Y_val, val_out, w, lamda)
+                    val_loss = softmax_loss(Y_val, val_out, w, lamda)
                 else:
-                    val_loss = logistic_loss(Y_val, val_out)
+                    val_loss = softmax_loss(Y_val, val_out)
                 VAL_LOSS.append(val_loss)
 
         TRAIN_ACC.append(100*np.sum(prediction(X_train, w)==Y_train)/len(Y_train))
@@ -171,12 +148,40 @@ def train_loop(w):
 
     return w
 
-w = train_loop(w)
-plt.figure(figsize=(12, 8 ))
-#plt.ylim([0, 1])
-plt.xlabel("Training steps")
-plt.ylabel("MSE Loss")
-plt.plot(TRAINING_STEP, TRAIN_LOSS, label="Training loss")
-plt.plot(TRAINING_STEP, VAL_LOSS, label="Validation loss")
-plt.legend() # Shows graph labels
-plt.show()
+
+## MAIN
+
+def main():
+    print("Ye boi")
+    # mnist.init()
+    X_train, Y_train, X_test, Y_test = mnist.load()
+    X_train = np.concatenate((X_train, np.ones((X_train.shape[0], 1))), axis=1)
+    X_train, Y_train, X_test, Y_test = one_hot_encoding(X_train, Y_train, X_test, Y_test)
+    X_train, Y_train = shuffle(X_train, Y_train)
+
+    X_train = X_train[:1000]
+    Y_train = Y_train[:1000]
+    X_test = X_test[:1000]
+    Y_test = Y_test[:1000]
+
+    X_train, Y_train, X_val, Y_val = train_val_split(X_train, Y_train, 0.1)
+    print("Train shape: X: {}, Y: {}".format(X_train.shape, Y_train.shape))
+    print("Validation shape: X: {}, Y: {}".format(X_val.shape, Y_val.shape))
+
+    ## TRAINING
+
+    w = train_loop(X_train, Y_train, X_val, Y_val)
+    plt.figure(figsize=(12, 8))
+    # plt.ylim([0, 1])
+    plt.xlabel("Training steps")
+    plt.ylabel("MSE Loss")
+    plt.plot(TRAINING_STEP, TRAIN_LOSS, label="Training loss")
+    plt.plot(TRAINING_STEP, VAL_LOSS, label="Validation loss")
+    plt.legend()  # Shows graph labels
+    plt.show()
+
+
+
+
+if __name__ == "__main__":
+    main()
