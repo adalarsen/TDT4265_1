@@ -3,6 +3,7 @@ import mnist
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
+import pickle
 from scipy.special import expit
 #mnist.init()
 X_train, Y_train, X_test, Y_test = mnist.load()

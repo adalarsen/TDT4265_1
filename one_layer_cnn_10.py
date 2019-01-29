@@ -50,9 +50,9 @@ def train_val_split(X, Y, val_percentage):
 def softmax_loss(targets, outputs, weights, lamda):
     targets = np.reshape(targets,outputs.shape)
     assert targets.shape == outputs.shape
-    softmax_error = np.multiply(targets, np.log(outputs))
-    mean_softmax = np.mean(softmax_error)
-    regularization =  np.sum(np.square(weights))*lamda
+    softmax_error = np.multiply(targets, np.log(softmax(outputs)))
+    mean_softmax = -np.mean(softmax_error) # med eller uten minus
+    regularization = np.sum(np.square(weights))*lamda
 
     softmaxx_error = mean_softmax + regularization
     return softmaxx_error
@@ -71,11 +71,12 @@ def gradient_descent(X, outputs, targets, weights, learning_rate, regularization
     targets = np.reshape(targets,outputs.shape)
     assert outputs.shape == targets.shape
 
+
     for i in range(weights.shape[0]):
         # Gradient for logistic regression
 
         dw_i = -(targets-softmax(outputs))*X[:, i:i+1]
-        dw_i += 2*lamda*np.sum(weights)
+        dw_i += lamda*np.sum(weights)
         dw_i = dw_i.sum(axis=0)
 
         weights[i] = weights[i] - learning_rate * dw_i
@@ -132,7 +133,7 @@ def train_loop(X_train, Y_train, X_val, Y_val):
                 TRAIN_LOSS.append(train_loss)
                 TRAINING_STEP.append(training_it)
 
-                val_out = 1/(1+np.exp(-forward_pass(X_val, w)))
+                val_out = softmax(forward_pass(X_val,w)) # 1/(1+np.exp(-forward_pass(X_val, w)))
                 if regularization:
                     val_loss = softmax_loss(Y_val, val_out, w, lamda)
                 else:
@@ -152,7 +153,6 @@ def train_loop(X_train, Y_train, X_val, Y_val):
 ## MAIN
 
 def main():
-    print("Ye boi")
     # mnist.init()
     X_train, Y_train, X_test, Y_test = mnist.load()
     X_train = np.concatenate((X_train, np.ones((X_train.shape[0], 1))), axis=1)
