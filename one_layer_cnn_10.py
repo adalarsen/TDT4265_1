@@ -3,6 +3,7 @@ import mnist
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.special import expit
+import matplotlib.cm as cm
 
 def one_hot_encoding(X_train, Y_train, X_test, Y_test):
     X_test = X_test/ 255
@@ -51,8 +52,8 @@ def softmax_loss(targets, outputs, weights, lamda):
     targets = np.reshape(targets,outputs.shape)
     assert targets.shape == outputs.shape
     softmax_error = np.multiply(targets, np.log(softmax(outputs)))
-    mean_softmax = -np.mean(softmax_error) # med eller uten minus
-    regularization = np.sum(np.square(weights))*lamda
+    mean_softmax = -softmax_error.mean() # med eller uten minus
+    regularization = 2*np.sum(np.square(weights))*lamda
 
     softmaxx_error = mean_softmax + regularization
     return softmaxx_error
@@ -76,7 +77,7 @@ def gradient_descent(X, outputs, targets, weights, learning_rate, regularization
         # Gradient for logistic regression
 
         dw_i = -(targets-softmax(outputs))*X[:, i:i+1]
-        dw_i += lamda*np.sum(weights)
+        dw_i += 2*lamda*np.sum(weights)
         dw_i = dw_i.sum(axis=0)
 
         weights[i] = weights[i] - learning_rate * dw_i
@@ -86,8 +87,12 @@ def gradient_descent(X, outputs, targets, weights, learning_rate, regularization
 def prediction(X, w):
     outs = forward_pass(X,w)
     outputs = softmax(outs)
-    pred = np.argmax(outputs, axis=0) #(outputs > .5)[:, 0]
+    pred = np.argmax(outputs, axis=1) #(outputs > .5)[:, 0 ]
+
     return pred
+
+def label(Y):
+    return np.argmax(Y, axis=1)
 
 # Hyperparameters
 epochs = 40
@@ -96,56 +101,61 @@ batch_size = 32
 # Tracking variables
 TRAIN_LOSS = []
 VAL_LOSS = []
+TEST_LOSS = []
 TRAINING_STEP = []
 TRAIN_ACC = []
+VAL_ACC = []
+TEST_ACC = []
 
-def train_loop(X_train, Y_train, X_val, Y_val):
+def train_loop(X_train, Y_train, X_val, Y_val, X_test, Y_test):
 
     num_features = X_train.shape[1]
     num_batches_per_epoch = X_train.shape[0] // batch_size
     check_step = num_batches_per_epoch // 10
-
+    print(num_batches_per_epoch)
     w = np.random.normal(size=(num_features, 10)) * 0.01
 
     regularization = 1
-    lamda = 0.1
+    lamda = 0.0001
     training_it = 0
-    T = 0.01
+    T = 1000
     for epoch in range(epochs):
         print(epoch / epochs)
         # shuffle(X_train, Y_train)
         for i in range(num_batches_per_epoch):
-            init_learning_rate = 0.001
-            #learning_rate = init_learning_rate / (1 + training_it/T)
-            learning_rate = 0.0001
+            init_learning_rate = 0.01
+            learning_rate = init_learning_rate / (1 + training_it/T)
+            #learning_rate = 0.0001
             training_it += 1
             X_batch = X_train[i * batch_size:(i + 1) * batch_size]
             Y_batch = Y_train[i * batch_size:(i + 1) * batch_size]
 
             out = forward_pass(X_batch, w)
+
             w = gradient_descent(X_batch, out, Y_batch, w, learning_rate, regularization, lamda)
 
-            if i % check_step == 0:
+            if True: #i % check_step == 0:
                 # Training set
-                train_out = forward_pass(X_train, w)
-                train_out = softmax(train_out)
+
+                train_out = softmax(forward_pass(X_train, w))
                 train_loss = softmax_loss(Y_train, train_out, w, lamda)
                 TRAIN_LOSS.append(train_loss)
                 TRAINING_STEP.append(training_it)
 
                 val_out = softmax(forward_pass(X_val,w)) # 1/(1+np.exp(-forward_pass(X_val, w)))
-                if regularization:
-                    val_loss = softmax_loss(Y_val, val_out, w, lamda)
-                else:
-                    val_loss = softmax_loss(Y_val, val_out)
+                val_loss = softmax_loss(Y_val, val_out, w, lamda)
                 VAL_LOSS.append(val_loss)
 
-        TRAIN_ACC.append(100*np.sum(prediction(X_train, w)==Y_train)/len(Y_train))
+                test_out = softmax(forward_pass(X_test,w)) # 1/(1+np.exp(-forward_pass(X_test, w)))
+                test_loss = softmax_loss(Y_test, test_out, w, lamda)
+                TEST_LOSS.append(test_loss)
+
+        TRAIN_ACC.append(100*np.sum(prediction(X_train, w)==label(Y_train))/len(Y_train))
         print(TRAIN_ACC[-1])
 
         if (epoch % 1 == 0):
-            print("Epoch: %d, Loss: %.8f, Error: %.8f"
-            % (epoch, train_loss, np.mean(TRAIN_LOSS)))
+            print("Epoch: %d, Loss: %.8f, Error: %.8f, Val_Loss: %.8f, Val_Error: %.8f "
+            % (epoch, train_loss, np.mean(TRAIN_LOSS), val_loss, np.mean(VAL_LOSS)))
 
     return w
 
@@ -153,11 +163,12 @@ def train_loop(X_train, Y_train, X_val, Y_val):
 ## MAIN
 
 def main():
-    # mnist.init()
+    #mnist.init()
     X_train, Y_train, X_test, Y_test = mnist.load()
     X_train = np.concatenate((X_train, np.ones((X_train.shape[0], 1))), axis=1)
+    X_test = np.concatenate((X_test, np.ones((X_test.shape[0], 1))), axis=1)
     X_train, Y_train, X_test, Y_test = one_hot_encoding(X_train, Y_train, X_test, Y_test)
-    X_train, Y_train = shuffle(X_train, Y_train)
+    #X_train, Y_train = shuffle(X_train, Y_train)
 
     X_train = X_train[:1000]
     Y_train = Y_train[:1000]
@@ -170,14 +181,22 @@ def main():
 
     ## TRAINING
 
-    w = train_loop(X_train, Y_train, X_val, Y_val)
+    w = train_loop(X_train, Y_train, X_val, Y_val, X_test, Y_test)
+
     plt.figure(figsize=(12, 8))
     # plt.ylim([0, 1])
     plt.xlabel("Training steps")
     plt.ylabel("MSE Loss")
     plt.plot(TRAINING_STEP, TRAIN_LOSS, label="Training loss")
     plt.plot(TRAINING_STEP, VAL_LOSS, label="Validation loss")
+    plt.plot(TRAINING_STEP, TEST_LOSS, label="Test loss")
     plt.legend()  # Shows graph labels
+    plt.show()
+
+
+    plt.figure(figsize=(12, 8 ))
+    plt.imshow(w[:-1,3].reshape(28,28), cmap=cm.binary)
+    plt.axis("off")
     plt.show()
 
 

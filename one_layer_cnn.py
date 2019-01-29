@@ -3,9 +3,8 @@ import mnist
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
-import pickle
 from scipy.special import expit
-#mnist.init()
+#nist.init()
 X_train, Y_train, X_test, Y_test = mnist.load()
 
 X_train = np.concatenate((X_train, np.ones((X_train.shape[0], 1))), axis=1)
@@ -51,8 +50,8 @@ X_train, Y_train, X_test, Y_test = remove_all_but_twos_and_threes(X_train,Y_trai
 print(X_train.shape)
 print(Y_train.shape)
 
-X_train = X_train[:1000]
-Y_train = Y_train[:1000]
+X_train = X_train[:10000]
+Y_train = Y_train[:10000]
 X_test = X_test[-1000:]
 Y_test = Y_test[-1000:]
 
@@ -139,9 +138,16 @@ TEST_LOSS = []
 TRAIN_ACC = []
 VAL_ACC = []
 TEST_ACC = []
+
+'''
+VAL_LOSS_1 = []
+VAL_LOSS_2 = []
+VAL_LOSS_3 = []
+'''
 num_features = X_train.shape[1]
 
 num_batches_per_epoch = X_train.shape[0] // batch_size
+print(num_batches_per_epoch)
 check_step = num_batches_per_epoch // 10
 
 def early_stopping(index):
@@ -150,12 +156,12 @@ def early_stopping(index):
         return 1
     else:
         return 0
-
+np.random.seed = 0
 w = np.random.normal(size=(num_features, 1))*0.01
+w_init = np.copy(w)
 
-def train_loop(w):
+def train_loop(w, lamda):
     regularization = 1
-    lamda = 0.001
     training_it = 0
     T = 1000
     for epoch in range(epochs):
@@ -173,7 +179,7 @@ def train_loop(w):
             w = gradient_descent(X_batch, out, Y_batch, w, learning_rate, regularization, lamda)
             training_it += 1
 
-            if i % check_step == 0:
+            if True: #i % check_step == 0:
                 # Training set
                 train_out = forward_pass(X_train, w)
                 train_out = np.divide(1,(1+np.exp(-train_out)))
@@ -187,6 +193,14 @@ def train_loop(w):
                 val_out = 1/(1+np.exp(-forward_pass(X_val, w)))
                 if regularization:
                     val_loss = logistic_loss_regularization(Y_val, val_out, w, lamda)
+                    '''
+                    val_loss_1 = logistic_loss_regularization(Y_val, val_out, w, 0.01)
+                    val_loss_2 = logistic_loss_regularization(Y_val, val_out, w, 0.001)
+                    val_loss_3 = logistic_loss_regularization(Y_val, val_out, w, 0.0001)
+                    VAL_LOSS_1.append(val_loss_1)
+                    VAL_LOSS_2.append(val_loss_2)
+                    VAL_LOSS_3.append(val_loss_3)
+                    '''
                 else:
                     val_loss = logistic_loss(Y_val, val_out)
                 VAL_LOSS.append(val_loss)
@@ -202,7 +216,8 @@ def train_loop(w):
                 VAL_ACC.append(100 * np.sum(prediction(X_val, w) == Y_val) / len(Y_val))
                 TEST_ACC.append(100 * np.sum(prediction(X_test, w) == Y_test) / len(Y_test))
 
-        if epoch > 4:
+        if epoch > 5:
+            print(len(VAL_LOSS))
             if early_stopping(len(VAL_LOSS)-1):
                break
 
@@ -213,16 +228,63 @@ def train_loop(w):
 
     return w
 
-w = train_loop(w)
+TRAIN_LOSS = []
+VAL_LOSS = []
+TRAINING_STEP = []
+TEST_LOSS = []
+TRAIN_ACC = []
+VAL_ACC = []
+TEST_ACC = []
+VAL_ACC = []
+w = w_init
+w = train_loop(w,0.01)
+VAL_ACC_1 = VAL_ACC
+VAL_ACC = []
+TRAIN_LOSS = []
+VAL_LOSS = []
+TRAINING_STEP = []
+TEST_LOSS = []
+TRAIN_ACC = []
+VAL_ACC = []
+TEST_ACC = []
+w = w_init
+w = train_loop(w,0.001)
+VAL_ACC_2 = VAL_ACC
+VAL_ACC = []
+TRAIN_LOSS = []
+VAL_LOSS = []
+TRAINING_STEP = []
+TEST_LOSS = []
+TRAIN_ACC = []
+VAL_ACC = []
+TEST_ACC = []
+w = w_init
+w = train_loop(w,0.0001)
+VAL_ACC_3 = VAL_ACC
+
+
+
 plt.figure(figsize=(12, 8 ))
 #plt.ylim([0, 1])
 plt.xlabel("Training steps")
-plt.ylabel("MSE Loss")
+plt.ylabel("Logistic Loss")
 plt.plot(TRAINING_STEP, TRAIN_LOSS, label="Training loss")
 plt.plot(TRAINING_STEP, VAL_LOSS, label="Validation loss")
 plt.plot(TRAINING_STEP, TEST_LOSS, label="Test loss")
 plt.legend() # Shows graph labels
 plt.show()
+
+
+plt.figure(figsize=(12, 8 ))
+#plt.ylim([0, 1])
+plt.xlabel("Training steps")
+plt.ylabel("Logistic Loss")
+plt.plot(TRAINING_STEP, VAL_ACC_1, label="Lambda = 0.01")
+plt.plot(TRAINING_STEP, VAL_ACC_2, label="Lambda = 0.001")
+plt.plot(TRAINING_STEP, VAL_ACC_3, label="Lambda = 0.0001")
+plt.legend() # Shows graph labels
+plt.show()
+
 
 plt.figure(figsize=(12, 8 ))
 #plt.ylim([0, 1])
@@ -234,8 +296,10 @@ plt.plot(TRAINING_STEP, TEST_ACC, label="Test accuracy")
 plt.legend() # Shows graph labels
 plt.show()
 
+
+
 print("Weights shape: ", str(w.shape))
 plt.figure(figsize=(12, 8 ))
-plt.imshow(w[:-1,9].reshape(28,28), cmap=cm.binary)
+plt.imshow(w[:-1,0].reshape(28,28), cmap=cm.binary)
 plt.axis("off")
 plt.show()
