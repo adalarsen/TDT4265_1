@@ -93,7 +93,7 @@ def label(Y):
     return np.argmax(Y, axis=1)
 
 # Hyperparameters
-epochs = 20
+epochs = 40
 batch_size = 32
 
 # Tracking variables
@@ -113,16 +113,16 @@ def train_loop(X_train, Y_train, X_val, Y_val, X_test, Y_test):
     w = np.random.normal(size=(num_features, 10)) * 0.01
 
     regularization = 1
-    lamda = 0.01
+    lamda = 0.001
     training_it = 0
     T = 1000
     for epoch in range(epochs):
         print(epoch / epochs)
-        TRAIN_ACC.append(100 * np.sum(prediction(X_train, w) == label(Y_train)) / len(Y_train))
-        print(TRAIN_ACC[-1])
+
+
         # shuffle(X_train, Y_train)
         for i in range(num_batches_per_epoch):
-            init_learning_rate = 0.01
+            init_learning_rate = 0.1
             learning_rate = init_learning_rate / (1 + training_it/T)
             #learning_rate = 0.0001
             training_it += 1
@@ -150,6 +150,11 @@ def train_loop(X_train, Y_train, X_val, Y_val, X_test, Y_test):
                 test_loss = softmax_loss(Y_test, test_out, w, lamda)
                 TEST_LOSS.append(test_loss)
 
+                TRAIN_ACC.append(100 * np.sum(prediction(X_train, w) == label(Y_train)) / len(Y_train))
+                VAL_ACC.append(100 * np.sum(prediction(X_val, w) == label(Y_val)) / len(Y_val))
+                TEST_ACC.append(100 * np.sum(prediction(X_test, w) == label(Y_test)) / len(Y_test))
+
+
 
 
         if (epoch % 1 == 0):
@@ -169,8 +174,8 @@ def main():
     X_train, Y_train, X_test, Y_test = one_hot_encoding(X_train, Y_train, X_test, Y_test)
     #X_train, Y_train = shuffle(X_train, Y_train)
 
-    X_train = X_train[:1000]
-    Y_train = Y_train[:1000]
+    X_train = X_train[:10000]
+    Y_train = Y_train[:10000]
     X_test = X_test[:1000]
     Y_test = Y_test[:1000]
 
@@ -185,11 +190,21 @@ def main():
     plt.figure(figsize=(12, 8))
     # plt.ylim([0, 1])
     plt.xlabel("Training steps")
-    plt.ylabel("MSE Loss")
+    plt.ylabel("Softmax Loss")
     plt.plot(TRAINING_STEP, TRAIN_LOSS, label="Training loss")
     plt.plot(TRAINING_STEP, VAL_LOSS, label="Validation loss")
     plt.plot(TRAINING_STEP, TEST_LOSS, label="Test loss")
     plt.legend()  # Shows graph labels
+    plt.show()
+
+    plt.figure(figsize=(12, 8 ))
+    #plt.ylim([0, 1])
+    plt.xlabel("Training steps")
+    plt.ylabel("Classified Correctly")
+    plt.plot(TRAINING_STEP, TRAIN_ACC, label="Training accuracy")
+    plt.plot(TRAINING_STEP, VAL_ACC, label="Validation accuracy")
+    plt.plot(TRAINING_STEP, TEST_ACC, label="Test accuracy")
+    plt.legend() # Shows graph labels
     plt.show()
 
     nr=2
