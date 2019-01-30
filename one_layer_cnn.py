@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 from scipy.special import expit
-#nist.init()
+#mnist.init()
 X_train, Y_train, X_test, Y_test = mnist.load()
 
 X_train = np.concatenate((X_train, np.ones((X_train.shape[0], 1))), axis=1)
@@ -49,8 +49,8 @@ X_train, Y_train, X_test, Y_test = remove_all_but_twos_and_threes(X_train,Y_trai
 print(X_train.shape)
 print(Y_train.shape)
 
-X_train = X_train[:1000]
-Y_train = Y_train[:1000]
+X_train = X_train[:10000]
+Y_train = Y_train[:10000]
 X_test = X_test[-1000:]
 Y_test = Y_test[-1000:]
 
@@ -126,7 +126,7 @@ def prediction(X, w):
 ## TRAINING
 
 # Hyperparameters
-epochs = 20
+epochs = 40
 batch_size = 32
 
 # Tracking variables
@@ -137,6 +137,7 @@ TEST_LOSS = []
 TRAIN_ACC = []
 VAL_ACC = []
 TEST_ACC = []
+WEIGHTS = []
 
 '''
 VAL_LOSS_1 = []
@@ -150,16 +151,17 @@ print(num_batches_per_epoch)
 check_step = num_batches_per_epoch // 10
 
 def early_stopping(index):
-    if VAL_LOSS[index] > (VAL_LOSS[index-num_batches_per_epoch-1] and VAL_LOSS[index-2-num_batches_per_epoch] and VAL_LOSS[index-3-num_batches_per_epoch]):
+    if ((VAL_LOSS[index] > VAL_LOSS[index-num_batches_per_epoch-1]) and (VAL_LOSS[index] > VAL_LOSS[index-2-num_batches_per_epoch]) and (VAL_LOSS[index] > VAL_LOSS[index-3-num_batches_per_epoch])):
         print("Yep")
         return 1
     else:
         return 0
-np.random.seed = 0
-w = np.random.normal(size=(num_features, 1))*0.01
-w_init = np.copy(w)
 
-def train_loop(w, lamda):
+def train_loop(lamda):
+
+    np.random.seed(0)
+    w = np.random.normal(size=(num_features, 1 ))*0.01
+
     regularization = 1
     training_it = 0
     T = 1000
@@ -192,14 +194,6 @@ def train_loop(w, lamda):
                 val_out = 1/(1+np.exp(-forward_pass(X_val, w)))
                 if regularization:
                     val_loss = logistic_loss_regularization(Y_val, val_out, w, lamda)
-                    '''
-                    val_loss_1 = logistic_loss_regularization(Y_val, val_out, w, 0.01)
-                    val_loss_2 = logistic_loss_regularization(Y_val, val_out, w, 0.001)
-                    val_loss_3 = logistic_loss_regularization(Y_val, val_out, w, 0.0001)
-                    VAL_LOSS_1.append(val_loss_1)
-                    VAL_LOSS_2.append(val_loss_2)
-                    VAL_LOSS_3.append(val_loss_3)
-                    '''
                 else:
                     val_loss = logistic_loss(Y_val, val_out)
                 VAL_LOSS.append(val_loss)
@@ -214,9 +208,11 @@ def train_loop(w, lamda):
                 TRAIN_ACC.append(100 * np.sum(prediction(X_train, w) == Y_train) / len(Y_train))
                 VAL_ACC.append(100 * np.sum(prediction(X_val, w) == Y_val) / len(Y_val))
                 TEST_ACC.append(100 * np.sum(prediction(X_test, w) == Y_test) / len(Y_test))
+                WEIGHTS.append(w)
+
+
 
         if epoch > 5:
-            print(len(VAL_LOSS))
             if early_stopping(len(VAL_LOSS)-1):
                break
 
@@ -235,9 +231,11 @@ TRAIN_ACC = []
 VAL_ACC = []
 TEST_ACC = []
 VAL_ACC = []
-w = w_init
-w = train_loop(w,0.01)
+WEIGHTS = []
+w = train_loop(0.01)
+w_1 = w
 VAL_ACC_1 = VAL_ACC
+WEIGHTS_1 = WEIGHTS
 VAL_ACC = []
 TRAIN_LOSS = []
 VAL_LOSS = []
@@ -246,9 +244,11 @@ TEST_LOSS = []
 TRAIN_ACC = []
 VAL_ACC = []
 TEST_ACC = []
-w = w_init
-w = train_loop(w,0.001)
+WEIGHTS = []
+w = train_loop(0.001)
+w_2 = w
 VAL_ACC_2 = VAL_ACC
+WEIGHTS_2 = WEIGHTS
 VAL_ACC = []
 TRAIN_LOSS = []
 VAL_LOSS = []
@@ -257,9 +257,11 @@ TEST_LOSS = []
 TRAIN_ACC = []
 VAL_ACC = []
 TEST_ACC = []
-w = w_init
-w = train_loop(w,0.0001)
+WEIGHTS = []
+w = train_loop(0.0001)
+w_3 = w
 VAL_ACC_3 = VAL_ACC
+WEIGHTS_3 = WEIGHTS
 
 
 
@@ -285,6 +287,7 @@ plt.legend() # Shows graph labels
 plt.show()
 
 
+
 plt.figure(figsize=(12, 8 ))
 #plt.ylim([0, 1])
 plt.xlabel("Training steps")
@@ -295,10 +298,34 @@ plt.plot(TRAINING_STEP, TEST_ACC, label="Test accuracy")
 plt.legend() # Shows graph labels
 plt.show()
 
-
-
-print("Weights shape: ", str(w.shape))
 plt.figure(figsize=(12, 8 ))
-plt.imshow(w[:-1,0].reshape(28,28), cmap=cm.binary)
-plt.axis("off")
+beep = []
+for weights in WEIGHTS_1:
+    beep.append(np.linalg.norm(weights))
+plt.plot(beep, label="Lambda= 0.001")
+'''
+beep = []
+for weights in WEIGHTS_2:
+    beep.append(np.linalg.norm(weights))
+plt.plot(beep, label="Lambda= 0.001")
+beep = []
+for weights in WEIGHTS_3:
+    beep.append(np.linalg.norm(weights))
+plt.plot(beep,  label="Lambda = 0.0001")
+'''
+plt.title('Weights with lambda')
+plt.show()
+
+
+ws = []
+ws.append(w_1)
+ws.append(w_2)
+ws.append(w_3)
+
+plt.subplot(1,3,1)
+plt.imshow(ws[0][:-1].reshape(28,28), cmap=plt.get_cmap('seismic'))
+plt.subplot(1,3,2)
+plt.imshow(ws[1][:-1].reshape(28,28), cmap=plt.get_cmap('seismic'))
+plt.subplot(1,3,3)
+plt.imshow(ws[2][:-1].reshape(28,28), cmap=plt.get_cmap('seismic'))
 plt.show()

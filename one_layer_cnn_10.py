@@ -192,10 +192,16 @@ def main():
     plt.legend()  # Shows graph labels
     plt.show()
 
-
-    plt.figure(figsize=(12, 8 ))
-    plt.imshow(w[:-1,4].reshape(28,28), cmap=cm.binary)
-    plt.axis("off")
+    nr=2
+    nc=5
+    fig, axis = plt.subplots(nr, nc)
+    images = []
+    idx=0
+    for i in range(nr):
+        for j in range(nc):
+            images.append(axis[i,j].imshow(w[:-1,idx].reshape(28,28), cmap=plt.get_cmap('seismic')))
+            idx += 1
+            axis[i,j].label_outer()
     plt.show()
 
 
