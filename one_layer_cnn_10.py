@@ -51,23 +51,22 @@ def train_val_split(X, Y, val_percentage):
 def softmax_loss(targets, outputs, weights, lamda):
     targets = np.reshape(targets,outputs.shape)
     assert targets.shape == outputs.shape
-    softmax_error = np.multiply(targets, np.log(softmax(outputs)))
-    mean_softmax = -softmax_error.mean() # med eller uten minus
-    regularization = 2*np.sum(np.square(weights))*lamda
+    softmax_error = np.multiply(targets, np.log((outputs)))
+    mean_softmax = -softmax_error.sum() # med eller uten minus
+    regularization = np.sum(np.square(weights))*lamda
 
-    softmaxx_error = mean_softmax + regularization
+    softmaxx_error = (mean_softmax + regularization)/(targets.shape[0])
     return softmaxx_error
 
 def forward_pass(X, w):
     return X.dot(w)
 
 
-
 def softmax(z):
-    s = np.divide(np.exp(z), np.sum(np.exp(z), axis=0))
+    s = np.divide(np.exp(z), np.sum(np.exp(z), axis=1, keepdims=True))
     return s
 
-def gradient_descent(X, outputs, targets, weights, learning_rate, regularization, lamda):
+def gradient_descent(X, outputs, targets, weights, learning_rate, lamda):
     N = X.shape[0]
     targets = np.reshape(targets,outputs.shape)
     assert outputs.shape == targets.shape
@@ -75,12 +74,11 @@ def gradient_descent(X, outputs, targets, weights, learning_rate, regularization
 
     for i in range(weights.shape[0]):
         # Gradient for logistic regression
-
         dw_i = -(targets-softmax(outputs))*X[:, i:i+1]
-        dw_i += 2*lamda*np.sum(weights)
+        dw_i += 2*lamda*np.sum(weights[i])
         dw_i = dw_i.sum(axis=0)
 
-        weights[i] = weights[i] - learning_rate * dw_i
+        weights[i] = weights[i] - (learning_rate * dw_i)/(targets.shape[0])
 
     return weights
 
@@ -95,7 +93,7 @@ def label(Y):
     return np.argmax(Y, axis=1)
 
 # Hyperparameters
-epochs = 40
+epochs = 20
 batch_size = 32
 
 # Tracking variables
@@ -112,15 +110,16 @@ def train_loop(X_train, Y_train, X_val, Y_val, X_test, Y_test):
     num_features = X_train.shape[1]
     num_batches_per_epoch = X_train.shape[0] // batch_size
     check_step = num_batches_per_epoch // 10
-    print(num_batches_per_epoch)
     w = np.random.normal(size=(num_features, 10)) * 0.01
 
     regularization = 1
-    lamda = 0.0001
+    lamda = 0.01
     training_it = 0
     T = 1000
     for epoch in range(epochs):
         print(epoch / epochs)
+        TRAIN_ACC.append(100 * np.sum(prediction(X_train, w) == label(Y_train)) / len(Y_train))
+        print(TRAIN_ACC[-1])
         # shuffle(X_train, Y_train)
         for i in range(num_batches_per_epoch):
             init_learning_rate = 0.01
@@ -132,7 +131,8 @@ def train_loop(X_train, Y_train, X_val, Y_val, X_test, Y_test):
 
             out = forward_pass(X_batch, w)
 
-            w = gradient_descent(X_batch, out, Y_batch, w, learning_rate, regularization, lamda)
+
+            w = gradient_descent(X_batch, out, Y_batch, w, learning_rate, lamda)
 
             if True: #i % check_step == 0:
                 # Training set
@@ -150,8 +150,7 @@ def train_loop(X_train, Y_train, X_val, Y_val, X_test, Y_test):
                 test_loss = softmax_loss(Y_test, test_out, w, lamda)
                 TEST_LOSS.append(test_loss)
 
-        TRAIN_ACC.append(100*np.sum(prediction(X_train, w)==label(Y_train))/len(Y_train))
-        print(TRAIN_ACC[-1])
+
 
         if (epoch % 1 == 0):
             print("Epoch: %d, Loss: %.8f, Error: %.8f, Val_Loss: %.8f, Val_Error: %.8f "
@@ -195,7 +194,7 @@ def main():
 
 
     plt.figure(figsize=(12, 8 ))
-    plt.imshow(w[:-1,3].reshape(28,28), cmap=cm.binary)
+    plt.imshow(w[:-1,4].reshape(28,28), cmap=cm.binary)
     plt.axis("off")
     plt.show()
 

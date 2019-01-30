@@ -11,7 +11,6 @@ X_train = np.concatenate((X_train, np.ones((X_train.shape[0], 1))), axis=1)
 X_test = np.concatenate((X_test, np.ones((X_test.shape[0], 1))), axis=1)
 print("X shape with bias:", X_train.shape)
 
-
 def remove_all_but_twos_and_threes(X_train, Y_train, X_test, Y_test):
     count_train = 0
     count_test = 0
@@ -50,8 +49,8 @@ X_train, Y_train, X_test, Y_test = remove_all_but_twos_and_threes(X_train,Y_trai
 print(X_train.shape)
 print(Y_train.shape)
 
-X_train = X_train[:10000]
-Y_train = Y_train[:10000]
+X_train = X_train[:1000]
+Y_train = Y_train[:1000]
 X_test = X_test[-1000:]
 Y_test = Y_test[-1000:]
 
@@ -89,11 +88,11 @@ def logistic_loss_regularization(targets, outputs, weights, lamda):
     targets = np.reshape(targets,outputs.shape)
     assert targets.shape == outputs.shape
     log_error = targets*np.log(outputs) + (1-targets)*np.log(1-outputs)
-    mean_log_error = -log_error.mean()
+    mean_log_error = -log_error.sum()
     regularization =  np.sum(np.square(weights))*lamda
     #print(regularization.shape)
     #print(mean_log_error.shape)
-    logg_error = mean_log_error + regularization
+    logg_error = (mean_log_error + regularization)/(targets.shape[0])
     return logg_error
 
 def forward_pass(X, w):
@@ -111,7 +110,7 @@ def gradient_descent(X, outputs, targets, weights, learning_rate, regularization
         dw_i = -(targets-1/(1+np.exp(-outputs)))*X[:, i:i+1]
         if regularization:
             dw_i += 2*lamda*np.sum(weights)
-        dw_i = dw_i.sum(axis=0)
+        dw_i = dw_i.sum(axis=0)/(targets.shape[0])
 
         weights[i] = weights[i] - learning_rate * dw_i
 
@@ -127,7 +126,7 @@ def prediction(X, w):
 ## TRAINING
 
 # Hyperparameters
-epochs = 40
+epochs = 20
 batch_size = 32
 
 # Tracking variables
@@ -168,7 +167,7 @@ def train_loop(w, lamda):
         print(epoch / epochs)
         # shuffle(X_train, Y_train)
         for i in range(num_batches_per_epoch):
-            init_learning_rate = 0.0001
+            init_learning_rate = 0.01
             learning_rate = init_learning_rate / (1 + training_it/T)
             #print(learning_rate)
             #learning_rate = 0.0001
