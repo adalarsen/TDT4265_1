@@ -303,7 +303,7 @@ beep = []
 for weights in WEIGHTS_1:
     beep.append(np.linalg.norm(weights))
 plt.plot(beep, label="Lambda= 0.001")
-'''
+
 beep = []
 for weights in WEIGHTS_2:
     beep.append(np.linalg.norm(weights))
@@ -312,7 +312,6 @@ beep = []
 for weights in WEIGHTS_3:
     beep.append(np.linalg.norm(weights))
 plt.plot(beep,  label="Lambda = 0.0001")
-'''
 plt.title('Weights with lambda')
 plt.show()
 
@@ -321,7 +320,7 @@ ws = []
 ws.append(w_1)
 ws.append(w_2)
 ws.append(w_3)
-
+plt.figure(figsize=(12, 8 ))
 plt.subplot(1,3,1)
 plt.imshow(ws[0][:-1].reshape(28,28), cmap=plt.get_cmap('seismic'))
 plt.subplot(1,3,2)

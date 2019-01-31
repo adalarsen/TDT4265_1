@@ -92,6 +92,20 @@ def prediction(X, w):
 def label(Y):
     return np.argmax(Y, axis=1)
 
+def average_labels(X_train, Y_train):
+    labels = np.zeros((10, 785))
+    Y_train = np.argmax(Y_train, axis=1)
+    for i in range(10):
+        counter = 0
+        for j in range(len(Y_train)):
+            if i==Y_train[j]:
+                labels[i] += X_train[j]
+                counter+= 1
+        labels[i] = labels[i]/counter
+    return labels
+
+
+
 # Hyperparameters
 epochs = 40
 batch_size = 32
@@ -207,16 +221,22 @@ def main():
     plt.legend() # Shows graph labels
     plt.show()
 
-    nr=2
+    labels= average_labels(X_train, Y_train)
+    nr=4
     nc=5
     fig, axis = plt.subplots(nr, nc)
     images = []
     idx=0
     for i in range(nr):
         for j in range(nc):
-            images.append(axis[i,j].imshow(w[:-1,idx].reshape(28,28), cmap=plt.get_cmap('seismic')))
-            idx += 1
-            axis[i,j].label_outer()
+            if (i%2+1):
+                images.append(axis[i,j].imshow(w[:-1,idx].reshape(28,28), cmap=plt.get_cmap('seismic')))
+                idx += 1
+                axis[i,j].label_outer()
+            else:
+                images.append(axis[i,j].imshow(labels[idx,:-1].reshape(28,28), cmap=plt.get_cmap('seismic')))
+                axis[i,j].label_outer()
+
     plt.show()
 
 
