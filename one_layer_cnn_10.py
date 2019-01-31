@@ -227,14 +227,17 @@ def main():
     fig, axis = plt.subplots(nr, nc)
     images = []
     idx=0
+    idx_2 = 0
+
     for i in range(nr):
         for j in range(nc):
-            if (i%2+1):
-                images.append(axis[i,j].imshow(w[:-1,idx].reshape(28,28), cmap=plt.get_cmap('seismic')))
-                idx += 1
+            if (i==0 or i==2):
+                images.append(axis[i,j].imshow(labels[idx_2,:-1].reshape(28,28), cmap=plt.get_cmap('seismic')))
+                idx_2 +=1
                 axis[i,j].label_outer()
             else:
-                images.append(axis[i,j].imshow(labels[idx,:-1].reshape(28,28), cmap=plt.get_cmap('seismic')))
+                images.append(axis[i,j].imshow(w[:-1,idx].reshape(28,28), cmap=plt.get_cmap('seismic')))
+                idx += 1
                 axis[i,j].label_outer()
 
     plt.show()
